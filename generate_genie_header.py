@@ -10,7 +10,6 @@ import re
 import argparse
 from typing import List, Dict, Tuple, Optional
 
-
 class GenieObject:
     """Represents an extracted Genie object from .4DGenie file."""
     def __init__(self, obj_type: str, name: str, alias: str, index: int, line_num: int):
