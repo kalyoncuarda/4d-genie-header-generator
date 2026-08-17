@@ -21,5 +21,50 @@
 ## 💻 Kullanım
 
 ### Header Üretme
+
 ```bash
 python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output include/genie_objects.h
+```
+
+### Strict Mode (alias eksikse hata ver)
+
+```bash
+python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output include/genie_objects.h --strict
+```
+
+### Check Mode (CI için, dosyayı değiştirmeden günceli doğrula)
+
+```bash
+python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output include/genie_objects.h --check
+```
+
+## 📁 Klasör Yapısı
+
+```
+tools/    -> generate_genie_header.py (ana script)
+tests/    -> test_generate_genie_header.py (otomatik testler)
+```
+
+## ✅ Testler
+
+Bu proje için 18 otomatik test yazılmıştır (`tests/test_generate_genie_header.py`).
+
+Testleri çalıştırmak için (proje kök dizinindeyken):
+
+```bash
+pip3 install pytest --break-system-packages
+python3 -m pytest tests/ -v
+```
+
+**Not:** 2 test (`test_determinizm_gercek_projede`, `test_gercek_proje_uctan_uca`) gerçek bir `.4DGenie` proje dosyası gerektirir. Bu dosya gizlilik nedeniyle repository'ye eklenmemiştir. Bu dosya olmadan çalıştırıldığında bu 2 test `SKIPPED` olarak işaretlenir (hata değil), geri kalan 16 test sorunsuz çalışır.
+
+Gerçek proje dosyasıyla test etmek için, `MainScreen.4DGenie` dosyasını proje kök dizinine (tools/ ve tests/ klasörleriyle aynı seviyeye) yerleştirip testleri tekrar çalıştırmanız yeterlidir.
+
+Testler şunları kapsar:
+- Alias'ların doğru okunması
+- Form / UserButton alias'larının doğru macro'ya dönüşmesi
+- camelCase ve boşluklu alias normalizasyonu
+- Duplicate alias / duplicate index tespiti
+- Alias'sız objelerin raporlanması (`--strict` modda hataya dönüşmesi)
+- Determinizm (aynı proje iki kez çalıştırılınca aynı header oluşması)
+- Üretilen header'ın hem C hem C++ derleyicisiyle sorunsuz derlenmesi
