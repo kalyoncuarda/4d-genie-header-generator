@@ -18,6 +18,41 @@
 - Görseller & Klavyeler (`USERIMAGES_...`, `IMAGE_...`, `KEYBOARD_...`)
 - Medya & Çizimler (`VIDEO_...`, `SOUNDS_...`, `PANEL_...`, `BORDER_...`)
 
+## ➕ Yeni Bir Genie Obje Tipi Eklenirse Ne Yapılmalı
+
+4D Studio üzerinde projeye, script'in şu an bilmediği yeni bir obje tipi (örn. `Gauge`, `Led`, `Slider`) eklenirse, script bunu **otomatik olarak eklemez**. Bunun yerine terminalde şuna benzer bir uyarı basar ve o objeyi header'a yazmadan atlar:
+
+```
+WARNING: Unrecognized block type 'Gauge' at line 5496. If this is a new Genie object type, add it to GENIE_TYPES. Skipped.
+```
+
+Bu uyarıyı görürsen, `tools/generate_genie_header.py` dosyasında **2 yeri** güncellemen gerekiyor:
+
+**1. `parse_4dgenie` fonksiyonundaki `GENIE_TYPES` setine yeni tipi ekle** (objenin okunabilmesi için):
+```python
+GENIE_TYPES = {
+    'Form', 'UserButton', 'WinButton', 'Strings', 'Image',
+    'UserImages', 'Keyboard', 'Panel', 'Border', 'Video', 'Sounds',
+    'StaticText', 'Gauge'   # <-- yeni tip buraya eklenir
+}
+```
+
+**2. `generate_header_content` fonksiyonundaki `TYPE_ORDER` listesine ve `type_display` sözlüğüne de ekle** (objenin header'a yazılabilmesi için):
+```python
+TYPE_ORDER = [
+    'Form', 'UserButton', 'WinButton', 'Strings',
+    'UserImages', 'Keyboard', 'Video', 'Image',
+    'Sounds', 'StaticText', 'Panel', 'Border', 'Gauge'  # <-- burada da
+]
+
+type_display = {
+    ...
+    'Gauge': 'Gauges'  # <-- ve burada da
+}
+```
+
+**Önemli:** Sadece 1. adımı yapıp 2.'yi unutursan, obje artık uyarı vermeden parse edilir ama yine de header'a yazılmaz (sessizce kaybolmaya devam eder, sadece uyarı görünmez olur). Bu yüzden ikisini birlikte güncellemek gerekir. Değişiklikten sonra script'i tekrar çalıştırıp testleri (`python3 -m pytest tests/ -v`) tekrar geçtiğinden emin ol.
+
 ## 💻 Kullanım
 
 ### Header Üretme
