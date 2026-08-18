@@ -83,16 +83,29 @@ def parse_4dgenie(file_path: str) -> List[GenieObject]:
         if stripped == 'end':
             if current_type and current_type in GENIE_TYPES:
                 index_match = re.search(r'\d+$', current_name or '')
-                index = int(index_match.group()) if index_match else 0
-                alias = current_alias if current_alias else (current_name or '')
+                if index_match:
+                    index = int(index_match.group())
+                    alias = current_alias if current_alias else (current_name or '')
 
-                objects.append(GenieObject(
-                    obj_type=current_type,
-                    name=current_name or '',
-                    alias=alias,
-                    index=index,
-                    line_num=block_start_line
-                ))
+                    objects.append(GenieObject(
+                        obj_type=current_type,
+                        name=current_name or '',
+                        alias=alias,
+                        index=index,
+                        line_num=block_start_line
+                    ))
+                else:
+                    # Name alaninin sonunda rakam yok, index guvenilir
+                    # sekilde cikarilamiyor. Yanlis/hayalet bir "index 0"
+                    # uretip header'i kirletmek yerine, bu objeyi tamamen
+                    # atlayip net bir uyari basiyoruz.
+                    print(
+                        f"WARNING: Could not extract index from Name '{current_name}' "
+                        f"({current_type}) at line {block_start_line} - reason: "
+                        f"'Name' does not end with a number (expected format like "
+                        f"'{current_type}5', got '{current_name}'). Object skipped.",
+                        file=sys.stderr
+                    )
             current_type = None
             current_name = None
             current_alias = None
