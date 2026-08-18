@@ -24,48 +24,35 @@ class GenieObject:
 
 
 def normalize_to_macro_name(alias: str) -> str:
-    """
-    Normalizes alias strings to valid C macro identifiers:
-    - MainMenu / mainMenu -> MAIN_MENU
-    - Main Menu / Connect-Button -> MAIN_MENU / CONNECT_BUTTON
-    - Removes invalid characters, collapses multiple underscores, prevents starting with digit.
-    """
     if not alias:
         return ""
-
-    # PascalCase/camelCase to snake_case (örn: SettingsMenu -> Settings_Menu, IPv4 -> I_Pv4 etc.)
     s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', alias)
     s2 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1)
-
-    # Convert non-alphanumeric characters (spaces, dashes, dots, etc.) to underscore
     s3 = re.sub(r'[^a-zA-Z0-9_]', '_', s2)
-
-    # Collapse multiple underscores into one
     s4 = re.sub(r'_+', '_', s3)
-
-    # Strip leading/trailing underscores and convert to uppercase
     result = s4.strip('_').upper()
-
-    # C identifiers cannot start with a digit
     if result and result[0].isdigit():
         result = '_' + result
-
     return result
 
 
+# Bunlar obje degil, proje meta/ayar bilgisi tasiyan bloklar (Options,
+# Depends, Platform, PlatRes, Version). Name/Alias alanlari olmadigi icin
+# obje listesine hic girmezler, bilerek atlanirlar.
+KNOWN_NON_OBJECT_BLOCKS = {'Options', 'Depends', 'Platform', 'PlatRes', 'Version'}
+
+
 def parse_4dgenie(file_path: str) -> List[GenieObject]:
-    """
-    Parses a .4DGenie text file and extracts objects with their types, index, name, and alias.
-    """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Project file not found: {file_path}")
 
-    # All known Genie Object Types (12 Proje Tipi)
     GENIE_TYPES = {
         'Form', 'UserButton', 'WinButton', 'Strings', 'Image',
         'UserImages', 'Keyboard', 'Panel', 'Border', 'Video', 'Sounds',
         'StaticText'
     }
+    # Buyuk/kucuk harf duyarsiz karsilastirma icin: "userbutton" -> "UserButton"
+    GENIE_TYPES_LOWER = {t.lower(): t for t in GENIE_TYPES}
 
     objects: List[GenieObject] = []
 
@@ -76,6 +63,11 @@ def parse_4dgenie(file_path: str) -> List[GenieObject]:
     current_name: Optional[str] = None
     current_alias: Optional[str] = None
     block_start_line = 0
+    # Bilinen bir meta blogun (Options, Depends, vb.) icindeyken TRUE olur;
+    # bu blogun ic satirlarini (orn. Options icindeki tek kelimelik "Genie"
+    # satiri) yanlislikla yeni bir blok basligi sanmamak icin, 'end'
+    # gorene kadar HER SEYI atlariz.
+    skipping_meta_block = False
 
     for idx, line in enumerate(lines, start=1):
         stripped = line.strip()
@@ -83,9 +75,13 @@ def parse_4dgenie(file_path: str) -> List[GenieObject]:
         if not stripped or stripped.startswith(';'):
             continue
 
+        if skipping_meta_block:
+            if stripped == 'end':
+                skipping_meta_block = False
+            continue
+
         if stripped == 'end':
             if current_type and current_type in GENIE_TYPES:
-                # Extract index from name (e.g. Form0 -> 0, Userbutton56 -> 56)
                 index_match = re.search(r'\d+$', current_name or '')
                 index = int(index_match.group()) if index_match else 0
                 alias = current_alias if current_alias else (current_name or '')
@@ -102,21 +98,41 @@ def parse_4dgenie(file_path: str) -> List[GenieObject]:
             current_alias = None
             continue
 
-        # Check if line is starting a new object block
         parts = stripped.split()
-        if len(parts) == 1 and parts[0] in GENIE_TYPES:
-            current_type = parts[0]
-            current_name = None
-            current_alias = None
-            block_start_line = idx
-            continue
+        if len(parts) == 1:
+            candidate = parts[0]
+            # Once tam (case-sensitive) eslesmeye bak, sonra buyuk/kucuk harf
+            # duyarsiz eslesmeyi dene (orn. 'USERBUTTON' -> 'UserButton').
+            matched_type = candidate if candidate in GENIE_TYPES else GENIE_TYPES_LOWER.get(candidate.lower())
+            if matched_type:
+                current_type = matched_type
+                current_name = None
+                current_alias = None
+                block_start_line = idx
+                continue
+            elif candidate in KNOWN_NON_OBJECT_BLOCKS or candidate.lower() in {'options', 'depends', 'platform', 'platres', 'version'}:
+                # Bilinen meta blok (proje ayarlari), obje degil - sessizce
+                # atla. Ic satirlarini da atlamak icin skip moduna gec.
+                skipping_meta_block = True
+                continue
+            elif current_type is None:
+                # GENIE_TYPES'ta da bilinen meta bloklarda da olmayan,
+                # daha once hic gorulmemis bir blok basligi. Sessizce
+                # atlamak yerine uyariyoruz - boylece gelecekte formatta
+                # kucuk bir fark (orn. buyuk/kucuk harf disinda bir sey)
+                # olursa fark edilmeden veri kaybi yasanmaz.
+                print(
+                    f"WARNING: Unrecognized block type '{candidate}' at line {idx}. "
+                    f"If this is a new Genie object type, add it to GENIE_TYPES. Skipped.",
+                    file=sys.stderr
+                )
+                skipping_meta_block = True
+                continue
 
-        # Parse key-value properties
         if current_type:
             kv_match = re.match(r'^([A-Za-z0-9_.]+)\s+(.+)$', stripped)
             if kv_match:
                 key, val = kv_match.group(1).strip(), kv_match.group(2).strip()
-                # Remove quotes if present
                 if (val.startswith("'") and val.endswith("'")) or (val.startswith('"') and val.endswith('"')):
                     val = val[1:-1]
 
@@ -129,10 +145,6 @@ def parse_4dgenie(file_path: str) -> List[GenieObject]:
 
 
 def generate_header_content(objects: List[GenieObject], strict: bool = False) -> str:
-    """
-    Generates deterministic C header file content from parsed objects.
-    """
-    # Deterministic export order across the 12 project types
     TYPE_ORDER = [
         'Form', 'UserButton', 'WinButton', 'Strings',
         'UserImages', 'Keyboard', 'Video', 'Image',
@@ -178,20 +190,17 @@ def generate_header_content(objects: List[GenieObject], strict: bool = False) ->
         if not type_objs:
             continue
 
-        # Sort deterministically by index
         type_objs.sort(key=lambda x: x.index)
 
         lines.append(f"/* {type_display.get(obj_type, obj_type)} */")
 
         for obj in type_objs:
-            # Check duplicate index in the same type
             idx_key = (obj.obj_type, obj.index)
             if idx_key in seen_type_indices:
                 errors.append(f"Duplicate index found: {obj.obj_type} index {obj.index} at line {obj.line_num}")
             else:
                 seen_type_indices[idx_key] = obj
 
-            # Check missing alias
             default_name_pattern = re.match(r'^[A-Za-z]+(\d+)$', obj.alias)
             has_no_alias = not obj.alias or (default_name_pattern and obj.alias.lower() == obj.name.lower())
 
@@ -205,7 +214,6 @@ def generate_header_content(objects: List[GenieObject], strict: bool = False) ->
             norm_name = normalize_to_macro_name(obj.alias)
             macro_name = f"{obj.obj_type.upper()}_{norm_name}"
 
-            # Check duplicate macro
             if macro_name in seen_macros:
                 errors.append(f"Duplicate macro name generated: {macro_name} ({obj} vs {seen_macros[macro_name]})")
             else:
@@ -258,7 +266,6 @@ def main():
                 print("Check passed: Header is up to date.")
                 sys.exit(0)
 
-        # Write output file
         os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(new_header)
