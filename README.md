@@ -7,6 +7,7 @@
 - **Deterministik Çıktı:** Bileşenleri tip ve index sırasına göre sıralar.
 - **İsim Normalizasyonu:** Alias metinlerini C makro standartlarına (`UPPER_SNAKE_CASE`) dönüştürür.
 - **Hata Kontrolleri:** Mükerrer index veya çakışan makro isimlerini otomatik yakalar.
+- **Format Doğrulama:** Büyük/küçük harf farklarını tolere eder; bilinmeyen bir obje tipi veya `Name` alanından index çıkarılamayan bir obje ile karşılaşırsa objeyi atlayıp nedenini açıklayan bir uyarı basar (sessizce yanlış veri üretmez).
 - **Strict Mode (`--strict`):** Alias verilmemiş bileşenler olduğunda hata fırlatır.
 - **Check Mode (`--check`):** Header dosyasının güncel olup olmadığını dosyayı değiştirmeden doğrular (CI uyumlu).
 
@@ -52,6 +53,17 @@ type_display = {
 ```
 
 **Önemli:** Sadece 1. adımı yapıp 2.'yi unutursan, obje artık uyarı vermeden parse edilir ama yine de header'a yazılmaz (sessizce kaybolmaya devam eder, sadece uyarı görünmez olur). Bu yüzden ikisini birlikte güncellemek gerekir. Değişiklikten sonra script'i tekrar çalıştırıp testleri (`python3 -m pytest tests/ -v`) tekrar geçtiğinden emin ol.
+
+## ⚠️ Diğer Otomatik Uyarılar
+
+Script, aşağıdaki durumlarda da objeyi header'a yazmadan atlar ve terminalde nedenini açıklayan bir `WARNING` basar:
+
+- **Bilinmeyen obje tipi:** `.4DGenie`'de `GENIE_TYPES`'ta tanımlı olmayan bir blok görülürse (yukarıdaki bölüme bakın).
+- **`Name` alanından index çıkarılamıyor:** 4D Studio her objeye normalde `TipAdıSayı` formatında bir isim verir (örn. `UserButton5`, `Form2`). Eğer bir objenin `Name` değeri sayı ile bitmiyorsa (örn. elle düzenleme sonucu bozulmuşsa), script index'i güvenilir şekilde belirleyemez ve şu formatta uyarır:
+  ```
+  WARNING: Could not extract index from Name 'ConnectButton' (UserButton) at line 12 - reason: 'Name' does not end with a number (expected format like 'UserButton5', got 'ConnectButton'). Object skipped.
+  ```
+  Bu durumda ilgili objeyi 4D Studio'da kontrol edip `Name` alanının bozulmadığından emin olman gerekir.
 
 ## 💻 Kullanım
 
