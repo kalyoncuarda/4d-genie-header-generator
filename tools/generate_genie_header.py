@@ -181,6 +181,7 @@ def generate_header_content(objects: List[GenieObject], strict: bool = False) ->
 
     warnings = []
     errors = []
+    missing_alias_objects = []  # strict modda tek ozet hata icin biriktirilir
 
     seen_macros: Dict[str, GenieObject] = {}
     seen_type_indices: Dict[Tuple[str, int], GenieObject] = {}
@@ -220,9 +221,13 @@ def generate_header_content(objects: List[GenieObject], strict: bool = False) ->
             if has_no_alias:
                 msg = f"WARNING: {obj.obj_type} index {obj.index} does not have an alias."
                 warnings.append(msg)
-                print(msg, file=sys.stderr)
                 if strict:
-                    errors.append(f"Strict mode error: {obj.obj_type} index {obj.index} has no alias.")
+                    # Strict modda anlik WARNING basmiyoruz; hepsini
+                    # biriktirip dongu bitince TEK bir ozet hata olarak
+                    # raporluyoruz (ayni bilgiyi iki kere yazdirmamak icin).
+                    missing_alias_objects.append((obj.obj_type, obj.index))
+                else:
+                    print(msg, file=sys.stderr)
 
             norm_name = normalize_to_macro_name(obj.alias)
             macro_name = f"{obj.obj_type.upper()}_{norm_name}"
@@ -237,6 +242,12 @@ def generate_header_content(objects: List[GenieObject], strict: bool = False) ->
         lines.append("")
 
     lines.append("#endif /* GENIE_OBJECTS_H */\n")
+
+    if missing_alias_objects:
+        summary_lines = [f"Strict mode error: {len(missing_alias_objects)} object(s) missing alias:"]
+        for obj_type, index in missing_alias_objects:
+            summary_lines.append(f"  - {obj_type} index {index}")
+        errors.append("\n".join(summary_lines))
 
     if errors:
         raise ValueError("\n".join(errors))
