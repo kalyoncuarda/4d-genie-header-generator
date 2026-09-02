@@ -92,6 +92,47 @@ python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output inc
 python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output include/genie_objects.h --check
 ```
 
+### Dry Run (dosyaya hiç yazmadan, üretilecek header'ı önizle)
+
+```bash
+python3 tools/generate_genie_header.py --project MainScreen.4DGenie --output include/genie_objects.h --dry-run
+```
+
+### Yeni bir obje tipi ekleme
+
+```bash
+python3 tools/generate_genie_header.py --add-type Gauge
+```
+
+### Kayıtlı tüm obje tiplerini listeleme
+
+```bash
+python3 tools/generate_genie_header.py --list-types
+```
+
+## 📖 Komut Satırı Referansı (`--help`)
+
+Tüm parametrelerin güncel listesini görmek için:
+
+```bash
+python3 tools/generate_genie_header.py --help
+```
+
+Çıkan seçeneklerin ne işe yaradığı:
+
+| Parametre | Açıklama |
+|---|---|
+| `-h`, `--help` | Bu yardım metnini gösterir, hiçbir işlem yapmadan çıkar. |
+| `--project`, `-p PROJECT` | İşlenecek `.4DGenie` dosyasının ya da `.4DWork` proje klasörünün yolu. Klasör verilirse, içindeki `.4DGenie` dosyası otomatik bulunur. Normal çalışma modunda **zorunludur**. |
+| `--output`, `-o OUTPUT` | Üretilecek header (`.h`) dosyasının nereye yazılacağı. Normal çalışma modunda **zorunludur**. |
+| `--strict` | Alias'sız bir obje bulunursa, uyarı vermek yerine **hata verip durur** (header üretilmez, exit code 1). |
+| `--check` | Header'ı diske **yazmaz**, sadece mevcut dosyayla üretilecek içeriği karşılaştırır. Farklıysa hata verir (exit code 1) — CI/build sistemlerinde "header güncel mi" kontrolü için kullanılır. |
+| `--dry-run` | Header'ı üretir ama diske **hiç yazmaz**, sonucu doğrudan terminale (stdout) basar. Sonucu görmeden önce dosyayı değiştirmemek için kullanılır. |
+| `--add-type TYPE_NAME` | `genie_types.json`'a yeni bir Genie obje tipi kaydeder (listenin sonuna eklenir) ve çıkar. `--project`/`--output` gerektirmez. |
+| `--list-types` | `genie_types.json`'da şu an kayıtlı olan tüm obje tiplerini numaralı bir liste halinde gösterir ve çıkar. Dosya henüz yoksa, önce varsayılan tiplerle oluşturulur. |
+
+**Not:** `--check` ve `--dry-run` aynı anda kullanılamaz (ikisi de "dosyaya yazma" davranışını farklı şekillerde değiştirdiği için birlikte anlamsız olur, script bu durumda hata verir).
+
 ## 📁 Klasör Yapısı
 
 ```
