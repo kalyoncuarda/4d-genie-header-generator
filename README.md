@@ -24,35 +24,42 @@
 4D Studio üzerinde projeye, script'in şu an bilmediği yeni bir obje tipi (örn. `Gauge`, `Led`, `Slider`) eklenirse, script bunu **otomatik olarak eklemez**. Bunun yerine terminalde şuna benzer bir uyarı basar ve o objeyi header'a yazmadan atlar:
 
 ```
-WARNING: Unrecognized block type 'Gauge' at line 5496. If this is a new Genie object type, add it to GENIE_TYPES. Skipped.
+WARNING: Unrecognized block type 'Gauge' at line 5496. If this is a new Genie object type, register it with: --add-type Gauge. Skipped.
 ```
 
-Bu uyarıyı görürsen, `tools/generate_genie_header.py` dosyasında **2 yeri** güncellemen gerekiyor:
+Desteklenen obje tipleri artık kaynak kodun (`.py` dosyasının) içinde **değil**, script ile aynı klasördeki **`genie_types.json`** dosyasında tutuluyor. Yeni bir tip eklemenin 2 geçerli yolu var:
 
-**1. `parse_4dgenie` fonksiyonundaki `GENIE_TYPES` setine yeni tipi ekle** (objenin okunabilmesi için):
-```python
-GENIE_TYPES = {
-    'Form', 'UserButton', 'WinButton', 'Strings', 'Image',
-    'UserImages', 'Keyboard', 'Panel', 'Border', 'Video', 'Sounds',
-    'StaticText', 'Gauge'   # <-- yeni tip buraya eklenir
+### Yöntem 1 — CLI ile (önerilen)
+
+```bash
+python3 tools/generate_genie_header.py --add-type Gauge
+```
+
+Bu komut, `genie_types.json`'a `Gauge` tipini otomatik olarak ekler (başlık olarak tip adının kendisini kullanır, listenin sonuna ekler). Hangi tiplerin şu an kayıtlı olduğunu görmek için:
+
+```bash
+python3 tools/generate_genie_header.py --list-types
+```
+
+### Yöntem 2 — `genie_types.json`'ı elle düzenleme
+
+`genie_types.json`, düz bir metin/JSON dosyası olduğu için istersen doğrudan bir editörle de açıp yeni bir satır ekleyebilirsin:
+
+```json
+{
+  "Form": "Forms / Menus",
+  "UserButton": "User Buttons",
+  ...
+  "Gauge": "Gauges"
 }
 ```
+Sözlükteki **sıra**, header'daki bölümlerin sırasını da belirliyor — yeni tipi istediğin yere (örn. iki tip arasına) ekleyebilirsin.
 
-**2. `generate_header_content` fonksiyonundaki `TYPE_ORDER` listesine ve `type_display` sözlüğüne de ekle** (objenin header'a yazılabilmesi için):
-```python
-TYPE_ORDER = [
-    'Form', 'UserButton', 'WinButton', 'Strings',
-    'UserImages', 'Keyboard', 'Video', 'Image',
-    'Sounds', 'StaticText', 'Panel', 'Border', 'Gauge'  # <-- burada da
-]
+### ⚠️ Önemli: Kaynak koddaki `DEFAULT_TYPES`'ı elle değiştirmek İŞE YARAMAZ
 
-type_display = {
-    ...
-    'Gauge': 'Gauges'  # <-- ve burada da
-}
-```
+`generate_genie_header.py` dosyasının içinde bir `DEFAULT_TYPES` sözlüğü var — ama bu, **sadece `genie_types.json` hiç yokken**, ilk çalıştırmada dosyayı oluşturmak için kullanılan bir "tohum" değer. `genie_types.json` bir kez oluştuktan sonra, script **artık kod içindeki `DEFAULT_TYPES`'a hiç bakmaz** — sadece JSON dosyasını okur. Yani kaynak kodu elle değiştirip yeni tip eklemeye çalışmak, `genie_types.json` zaten varsa **hiçbir etki yapmaz**. Yeni tip eklemek için her zaman Yöntem 1 ya da Yöntem 2'yi kullan.
 
-**Önemli:** Sadece 1. adımı yapıp 2.'yi unutursan, obje artık uyarı vermeden parse edilir ama yine de header'a yazılmaz (sessizce kaybolmaya devam eder, sadece uyarı görünmez olur). Bu yüzden ikisini birlikte güncellemek gerekir. Değişiklikten sonra script'i tekrar çalıştırıp testleri (`python3 -m pytest tests/ -v`) tekrar geçtiğinden emin ol.
+Değişiklikten sonra script'i tekrar çalıştırıp testleri (`python3 -m pytest tests/ -v`) tekrar geçtiğinden emin ol.
 
 ## ⚠️ Diğer Otomatik Uyarılar
 
